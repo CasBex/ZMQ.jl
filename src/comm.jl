@@ -1,23 +1,23 @@
-
 ## Send/receive messages.
 
 ############################################################################
 
-function _send(socket::Socket, zmsg, more::Bool=false)
+function _send(socket::Socket, zmsg, more::Bool = false)
     while true
-        if -1 == lib.zmq_msg_send(zmsg, socket, (ZMQ_SNDMORE*more) | ZMQ_DONTWAIT)
+        if -1 == lib.zmq_msg_send(zmsg, socket, (ZMQ_SNDMORE * more) | ZMQ_DONTWAIT)
             lib.zmq_errno() == EAGAIN || throw(StateError(jl_zmq_error_str()))
             while (socket.events & POLLOUT) == 0
                 wait(socket)
             end
         else
-            notify_is_expensive = !isempty(getfield(socket,:pollfd).watcher.notify.waitq)
+            notify_is_expensive = !isempty(getfield(socket, :pollfd).watcher.notify.waitq)
             if notify_is_expensive
                 socket.events != 0 && notify(socket)
             end
             break
         end
     end
+    return
 end
 
 # By default, we send using _Message objects, which are optimized for
@@ -34,9 +34,9 @@ to indicate that `data` is a portion of a larger multipart message.
 `String`, or a [`Message`](@ref) object to perform zero-copy sends
 of large arrays.
 """
-function Sockets.send(socket::Socket, data; more::Bool=false)
+function Sockets.send(socket::Socket, data; more::Bool = false)
     zmsg = _MessageRef(data)
-    try
+    return try
         _send(socket, zmsg, more)
     finally
         close(zmsg)
@@ -49,15 +49,15 @@ end
 Zero-copy version of [`Sockets.send(socket, data)`](@ref) using a user-allocated
 [`Message`](@ref).
 """
-Sockets.send(socket::Socket, zmsg::Message; more::Bool=false) = _send(socket, zmsg, more)
+Sockets.send(socket::Socket, zmsg::Message; more::Bool = false) = _send(socket, zmsg, more)
 
 import Sockets: send
-@deprecate send(socket::Socket, data, more::Bool) send(socket, data; more=more)
+@deprecate send(socket::Socket, data, more::Bool) send(socket, data; more = more)
 
-function Sockets.send(f::Function, socket::Socket; more::Bool=false)
+function Sockets.send(f::Function, socket::Socket; more::Bool = false)
     io = IOBuffer()
     f(io)
-    send(socket, take!(io); more=more)
+    return send(socket, take!(io); more = more)
 end
 
 """
@@ -69,8 +69,9 @@ object that supports `getindex()`, `eachindex()`, and `lastindex()`.
 function send_multipart(socket::Socket, parts)
     for i in eachindex(parts)
         is_last = i == lastindex(parts)
-        send(socket, parts[i]; more=!is_last)
+        send(socket, parts[i]; more = !is_last)
     end
+    return
 end
 
 ############################################################################
@@ -79,11 +80,12 @@ function _recv!(socket::Socket, zmsg)
     while true
         if -1 == lib.zmq_msg_recv(zmsg, socket, ZMQ_DONTWAIT)
             lib.zmq_errno() == EAGAIN || throw(StateError(jl_zmq_error_str()))
-            while socket.events & POLLIN== 0
+            println("while")
+            while socket.events & POLLIN == 0
                 wait(socket)
             end
         else
-            notify_is_expensive = !isempty(getfield(socket,:pollfd).watcher.notify.waitq)
+            notify_is_expensive = !isempty(getfield(socket, :pollfd).watcher.notify.waitq)
             if notify_is_expensive
                 socket.events != 0 && notify(socket)
             end

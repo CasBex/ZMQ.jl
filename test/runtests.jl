@@ -289,6 +289,7 @@ end
 
     ctx = Context()
     req1 = Socket(REQ)
+    req12 = Socket(REQ)
     rep1 = Socket(REP)
     rep_trigger = Socket(REP)
     req2 = Socket(REQ)
@@ -325,6 +326,7 @@ end
 
     # Polling multiple items
     # case 1: socket received message before poll
+    println("Case 1")
     send(req1, hi)
     @test poll(poller, timeout_ms) == 1
     @test poller.revents[2] == ZMQ.POLLIN
@@ -332,8 +334,11 @@ end
     send(rep1, bye)
     @test poll(poller, timeout_ms) == 1
     recv(req1)
+    @test rep1.events == 0
+    @test req1.events == 2
 
     # case 2: socket received message during poll
+    println("Case 2")
     t = @spawn async_send(addr, trigger_addr, timeout_ms * 1.0e-4)
     recv(rep_trigger)
     @test poll(poller, timeout_ms) == 1
@@ -344,17 +349,23 @@ end
     @test poll(poller, timeout_ms) == 0
     send(rep_trigger, bye)
     wait(t)
+    @show rep1.events
 
     # case 3: poll times out
-    t = @spawn async_send(addr, trigger_addr, timeout_ms * 2.0e-3)
+    println("Case 3")
+    t = @spawn async_send(addr, trigger_addr, timeout_ms * 1.0e-2)
     recv(rep_trigger)
     @test poll(poller, timeout_ms) == 0
     send(rep_trigger, bye)
     wait(t)
+    @show rep1.events
     recv(rep1)
+    @show rep1.events
     send(rep1, bye)
+    @show rep1.events
 
     # case 4: blocking poll receive before
+    println("Case 4")
     send(req1, hi)
     @test poll(poller) == 1
     @test poller.revents[2] == ZMQ.POLLIN
@@ -364,6 +375,7 @@ end
     recv(req1)
 
     # case 5: blocking poll receive during
+    println("Case 5")
     t = @spawn async_send(addr, trigger_addr, timeout_ms * 1.0e-4)
     recv(rep_trigger)
     @test poll(poller) == 1
@@ -376,6 +388,7 @@ end
     wait(t)
 
     # case 6: multiple sockets receive before call with timeout
+    println("Case 6")
     send(req1, hi)
     send(req2, hi)
     @test poll(poller, timeout_ms) == 2
@@ -390,6 +403,7 @@ end
     recv(req2)
 
     # case 7: multiple sockets receive during call with no timeout
+    println("Case 7")
     t1 = @spawn async_send(addr, trigger_addr, timeout_ms * 1.0e-4)
     recv(rep_trigger)
     send(rep_trigger, bye)

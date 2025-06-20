@@ -63,7 +63,7 @@ struct PollItems2
         revents = zeros(Int16, length(socks))
         revents_lock = [ReentrantLock() for _ in eachindex(socks)]
         # All listening tasks must run on a single thread
-        tasks = map(i -> @async(_polltask(trigger, trigger2, channel, socks[i], Int16(events[i]), revents, revents_lock[i], i)), eachindex(events))
+        tasks = map(i -> @spawn(_polltask(trigger, trigger2, channel, socks[i], Int16(events[i]), revents, revents_lock[i], i)), eachindex(events))
         notify(trigger2)
         return new(socks, events, deepcopy(revents), revents, tasks, channel, trigger, trigger2, revents_lock)
     end
